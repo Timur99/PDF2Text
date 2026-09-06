@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from backend.api.routes import router
+from backend.infra.paths import frontend_dir
 
-FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
+FRONTEND_DIR = frontend_dir()
 
 app = FastAPI(title="local_OCR", version="0.1.0")
 app.add_middleware(

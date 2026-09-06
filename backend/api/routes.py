@@ -52,25 +52,29 @@ def engines() -> dict:
                 "id": "auto",
                 "label": "Авто",
                 "available": True,
-                "description": "pdf-inspector, OCR только для проблемных страниц",
+                "description": "Для всего подряд. Текстовый слой берётся напрямую, "
+                "распознавание запускается только на страницах, где текста нет",
             },
             {
                 "id": "native",
                 "label": "Только native",
                 "available": True,
-                "description": "Без OCR. Только text-based PDF",
+                "description": "Для PDF, где текст уже есть: выгрузка мгновенная и точная. "
+                "На сканах и фото откажется работать",
             },
             {
                 "id": "vision",
                 "label": "Apple Vision",
                 "available": _engine_available("vision"),
-                "description": "Встроенный OCR macOS. Быстрый, ничего не нужно устанавливать",
+                "description": "Для сканов, фото и многоколоночных страниц. Встроен в macOS, "
+                "в 10–15 раз быстрее PaddleOCR, лучше держит порядок чтения по колонкам",
             },
             {
                 "id": "paddleocr",
                 "label": "PaddleOCR",
                 "available": _engine_available("paddleocr"),
-                "description": "Запасной движок. Принудительный OCR всех страниц",
+                "description": "Запасной. Имеет смысл, когда Vision промахнулся на конкретном "
+                "файле, и на системах кроме macOS. Заметно медленнее",
             },
         ],
     }

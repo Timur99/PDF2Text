@@ -97,6 +97,10 @@ body {
   min-width: 0;
 }
 
+/* В нативном окне заголовок рисует macOS — дублировать его в тулбаре не нужно.
+   В браузере атрибута нет и заголовок остаётся. */
+[data-shell="mac"] .toolbar-title { display: none; }
+
 .toolbar-controls {
   display: flex;
   align-items: center;

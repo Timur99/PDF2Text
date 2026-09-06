@@ -14,8 +14,16 @@ SAFE_NAME = re.compile(r"[^A-Za-z0-9._-]+")
 
 
 def safe_filename(name: str) -> str:
-    cleaned = SAFE_NAME.sub("_", Path(name).name).strip("._")
-    return (cleaned or "upload")[:80]
+    """Безопасное имя для диска. Исходное имя живёт в `JobRecord.filename`.
+
+    Основа и расширение чистятся раздельно. Раньше чистилось имя целиком, и
+    русское имя (`Кузмицкий Евгений.pdf`) схлопывалось в один `_`, после чего
+    `strip("._")` съедал точку — файл ложился на диск как `pdf`, без расширения.
+    """
+    original = Path(name).name
+    suffix = SAFE_NAME.sub("", Path(original).suffix)[:16]
+    stem = SAFE_NAME.sub("_", Path(original).stem).strip("._")[:80]
+    return f"{stem or 'upload'}{suffix}"
 
 
 class JobStore:

@@ -44,7 +44,7 @@ def test_inspector_classifies_sample_pdfs() -> None:
 @pytest.mark.skipif(not _pdfs(), reason="inputs/ с PDF отсутствует")
 def test_native_path_extracts_text_from_digital_pdf() -> None:
     from backend.app.pipeline import DocumentPipeline
-    from backend.engines.paddle import PaddleOCREngine
+    from backend.engines import default_engines
     from backend.infra.storage import JobStore
 
     digital = None
@@ -57,7 +57,7 @@ def test_native_path_extracts_text_from_digital_pdf() -> None:
         pytest.skip("Среди inputs нет полностью text-based PDF")
 
     store = JobStore(Path("data/test-jobs"))
-    pipeline = DocumentPipeline(store, PaddleOCREngine())
+    pipeline = DocumentPipeline(store, default_engines())
     job = JobRecord(id="test-native", filename=digital.name, engine=EngineChoice.auto)
     result = pipeline.run(job, digital)
     assert result.path.value == "native"

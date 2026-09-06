@@ -25,6 +25,63 @@ iconutil -c icns desktop/icons/AppIcon.iconset -o desktop/icons/AppIcon.icns
 `iconutil` не работает под песочницей Claude Code — падает с
 `Failed to generate ICNS` даже на корректном наборе. Запускать напрямую.
 
+## Сборка
+
+Два шага. Первый — бэкенд в самостоятельный бинарь, второй — бандл и образ.
+
+```bash
+.venv/bin/pyinstaller desktop/pdf2text.spec --noconfirm \
+  --distpath desktop/dist --workpath desktop/build
+./desktop/build_app.sh
+```
+
+На выходе `desktop/dist/PDF2Text.app` (49 МБ) и `desktop/dist/PDF2Text-0.1.0.dmg` (50 МБ).
+Переменные: `PDF2TEXT_VERSION`, `PDF2TEXT_BUNDLE_ID`.
+
+**Почему 49 МБ, а не 400.** В `pdf2text.spec` главное — не то, что включено, а секция
+`EXCLUDES`: paddle, paddlex, torch и прочий ML-стек в бандл не едут. Дефолтный движок —
+Apple Vision, встроенный в macOS. Внутри бандла `/api/v1/engines` показывает
+`paddleocr: available=false`, и это правильно: он остаётся опциональной докачкой.
+
+PyInstaller пишет кеш в `~/Library/Application Support/pyinstaller`, под песочницей
+Claude Code это не проходит — собирать напрямую.
+
+Пути внутри spec считаются от самого spec-файла (`SPECPATH`), а не от текущего каталога.
+Так было не всегда: с `pathex=[".."]` сборка из корня репозитория молча давала битый бинарь,
+падавший на `ModuleNotFoundError: No module named 'backend'` только в момент запуска.
+
+## Оболочка: Swift + WKWebView
+
+`desktop/PDF2Text.swift` — нативное окно (~230 строк, бинарь 87 КБ). Рисует ту же страницу,
+что и веб-версия, движком WebKit из самой macOS. Rust и Node не нужны, компиляция — секунды.
+
+**Почему не Tauri.** Главное преимущество Tauri — кроссплатформенность, а продукт
+macOS-only по построению: дефолтный движок Apple Vision больше нигде не существует.
+Полтора гигабайта тулчейна ради портируемости, которой не воспользуемся. Tauri остаётся
+опцией, если однажды откажемся от Vision или понадобится его экосистема.
+
+Что делает оболочка:
+
+- ищет свободный порт перебором 8765–8789 — два экземпляра не подерутся;
+- запускает `pdf2text-server` из `Contents/Resources` и ждёт `/api/v1/health`;
+- гасит бэкенд и на штатном выходе (`applicationWillTerminate`), и по SIGTERM/SIGINT
+  (`DispatchSource`) — без второго бэкенд оставался сиротой с занятым портом;
+- перехватывает blob-ссылки кнопок «Markdown» и «TXT» и сохраняет в «Загрузки»:
+  WKWebView без `WKDownloadDelegate` такую навигацию просто игнорирует.
+
+**Обязательное в Info.plist:** `NSAppTransportSecurity` → `NSAllowsLocalNetworking`.
+Без него ATS режет `http://127.0.0.1` и окно остаётся пустым.
+
+## Отладка
+
+```bash
+PDF2TEXT_LOG_LEVEL=info desktop/dist/PDF2Text.app/Contents/MacOS/PDF2Text
+```
+
+Запуск бинаря напрямую, не через `open`, отдаёт логи в терминал. По умолчанию уровень
+`warning`: в собранном приложении логи уходят в системный журнал, и содержимого документов
+там быть не должно.
+
 ## Целевой путь
 
 1. Сейчас: веб-MVP (`python -m backend.main` или `local-ocr`).

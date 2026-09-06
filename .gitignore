@@ -1,1 +1,22 @@
-.cursor
+# Документы пользователя и результаты обработки — не в git никогда
+data/
+inputs/
+benchmark_outputs/
+*.dmg
+
+# Локальный скретч. Документы проекта переехали в docs/ и версионируются.
+.local-dev/
+.cursor/
+
+# Окружение и сборка
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+node_modules/
+desktop/src-tauri/target/
+desktop/build/
+desktop/dist/
+.DS_Store

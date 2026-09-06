@@ -134,7 +134,10 @@ class DocumentPipeline:
         )
 
     def run(self, job: JobRecord, source: Path) -> OCRResult:
-        suffix = source.suffix.lower()
+        # Тип определяем по исходному имени, а не по имени на диске: второе
+        # проходит санитайзер и может отличаться. API уже проверил расширение
+        # именно у исходного, так что источник истины должен быть один.
+        suffix = (Path(job.filename).suffix or source.suffix).lower()
         is_pdf = suffix in PDF_SUFFIXES
         is_image = suffix in IMAGE_SUFFIXES
         if not is_pdf and not is_image:
@@ -195,7 +198,13 @@ class DocumentPipeline:
         if ocr_pages:
             if ocr_engine is None or not ocr_engine.available():
                 raise PipelineError(self._unavailable_message(job.engine))
-            job.touch(JobStatus.running, 30, f"Подготовка OCR: {len(ocr_pages)} стр.")
+            rest = page_count - len(ocr_pages)
+            note = f", остальные {rest} взяты напрямую" if rest > 0 else ""
+            job.touch(
+                JobStatus.running,
+                30,
+                f"Нужен OCR: {len(ocr_pages)} из {page_count} стр.{note}",
+            )
             self.store.save(job)
             images: list[tuple[int, Path]] = []
             if is_image:
@@ -207,7 +216,10 @@ class DocumentPipeline:
 
             def on_page(index: int, total: int, page: int) -> None:
                 progress = 30 + int(50 * index / max(total, 1))
-                job.touch(JobStatus.running, progress, f"OCR {index}/{total}: стр. {page}")
+                label = f"Распознаю страницу {page}"
+                if total > 1:
+                    label += f" ({index} из {total})"
+                job.touch(JobStatus.running, progress, label)
                 self.store.save(job)
 
             for item in ocr_engine.recognize_images(images, job.language, on_page=on_page):
@@ -224,6 +236,14 @@ class DocumentPipeline:
             for _page_no, image_path in images:
                 if image_path != source and image_path.exists():
                     image_path.unlink(missing_ok=True)
+
+        # Пустая выдача OCR — не ошибка, но и не результат: без объяснения
+        # пользователь видит чистый экран и не понимает, что произошло.
+        if ocr_pages and not any(text.strip() for text, _ in ocr_by_page.values()):
+            warnings.append(
+                "Распознавание не нашло текста. Возможно, на изображении его нет, "
+                "либо он слишком мелкий, размытый или под сильным углом."
+            )
 
         job.touch(JobStatus.postprocessing, 85, "Сборка результата")
         self.store.save(job)

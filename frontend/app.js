@@ -24,6 +24,7 @@ const state = {
   pageFilter: null,
   copyText: "",
   lastFile: null,
+  engineNotice: false,
   pollToken: 0,
   objectUrls: [],
 };
@@ -95,11 +96,24 @@ function renderEngines() {
 
 function selectEngine(engine) {
   if (!engine.available) {
+    state.engineNotice = true;
     showEngineUnavailable(engine);
     return;
   }
   state.engine = engine.id;
   renderEngines();
+  // Экран «движок недоступен» подменяет собой панель результата и прячет
+  // .result-head. Без явного восстановления он залипал намертво: выбрать
+  // рабочий движок было можно, но экран оставался прежним.
+  if (state.engineNotice) {
+    state.engineNotice = false;
+    $("notices").replaceChildren();
+    if (state.job && state.result) {
+      renderResult(state.job, state.result);
+    } else {
+      showEmpty();
+    }
+  }
 }
 
 function showEngineUnavailable(engine) {

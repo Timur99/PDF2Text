@@ -3,12 +3,41 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Callable
 
 os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
 
 from backend.engines.base import OCRPageOutput
+from backend.infra.paths import data_dir, resource_dir
+
+# Стек paddle весит 480 МБ и в бандл не вшивается — приложение осталось бы
+# полугигабайтным. Вместо этого зовём внешний Python, где paddleocr установлен.
+# Инвариант №6 архитектуры того же требует: тяжёлый движок — отдельный процесс.
+PYTHON_ENV_VAR = "PDF2TEXT_PADDLE_PYTHON"
+PYTHON_CONFIG = "paddle_python.txt"
+RESULT_MARKER = "---PDF2TEXT-RESULT---"
+WORKER_TIMEOUT = 900
+
+
+def external_python() -> Path | None:
+    """Внешний Python с paddleocr: переменная окружения или файл настройки."""
+    override = os.environ.get(PYTHON_ENV_VAR)
+    if override:
+        candidate = Path(override).expanduser()
+        return candidate if candidate.exists() else None
+    config = data_dir().parent / PYTHON_CONFIG
+    if config.exists():
+        candidate = Path(config.read_text(encoding="utf-8").strip()).expanduser()
+        return candidate if candidate.exists() else None
+    return None
+
+
+def worker_script() -> Path:
+    bundled = resource_dir() / "backend" / "engines" / "paddle_worker.py"
+    return bundled if bundled.exists() else Path(__file__).with_name("paddle_worker.py")
 
 
 def _collect_text(value: Any, texts: list[str], scores: list[float]) -> None:
@@ -82,9 +111,69 @@ class PaddleOCREngine:
 
     def __init__(self) -> None:
         self._clients: dict[str, Any] = {}
+        # None — ещё не проверяли, False — внешнего Python нет, Path — найден.
+        self._external: Path | bool | None = None
 
     def available(self) -> bool:
-        return importlib.util.find_spec("paddleocr") is not None
+        if importlib.util.find_spec("paddleocr") is not None:
+            return True
+        return self._external_ready()
+
+    def _external_ready(self) -> bool:
+        """Есть ли внешний Python и стоит ли в нём paddleocr. Результат кэшируем:
+        проверка — запуск процесса, а `available()` дёргается на каждый /engines."""
+        if self._external is not None:
+            return self._external is not False
+        python = external_python()
+        if python is None:
+            self._external = False
+            return False
+        try:
+            probe = subprocess.run(
+                [str(python), "-c", "import importlib.util,sys;"
+                 "sys.exit(0 if importlib.util.find_spec('paddleocr') else 1)"],
+                capture_output=True,
+                timeout=30,
+            )
+        except (OSError, subprocess.SubprocessError):
+            self._external = False
+            return False
+        self._external = python if probe.returncode == 0 else False
+        return self._external is not False
+
+    def _run_worker(
+        self,
+        images: list[tuple[int, Path]],
+        language: str,
+        on_page: Callable[[int, int, int], None] | None,
+    ) -> list[OCRPageOutput]:
+        python = self._external
+        assert isinstance(python, Path)
+        if on_page is not None:
+            # Воркер обрабатывает пачку целиком, поэтому прогресс на страницу
+            # отдать нечем — сообщаем хотя бы о старте.
+            on_page(1, len(images), images[0][0])
+        request = json.dumps(
+            {"images": [[page, str(path)] for page, path in images], "language": language},
+            ensure_ascii=False,
+        )
+        completed = subprocess.run(
+            [str(python), str(worker_script()), request],
+            capture_output=True,
+            text=True,
+            timeout=WORKER_TIMEOUT,
+        )
+        if completed.returncode != 0:
+            tail = (completed.stderr or completed.stdout or "").strip()[-500:]
+            raise RuntimeError(f"PaddleOCR не отработал: {tail}")
+        marker = completed.stdout.rfind(RESULT_MARKER)
+        if marker < 0:
+            raise RuntimeError("PaddleOCR не вернул результат")
+        payload = json.loads(completed.stdout[marker + len(RESULT_MARKER):])
+        return [
+            OCRPageOutput(page=item["page"], text=item["text"], confidence=item["confidence"])
+            for item in payload["pages"]
+        ]
 
     def recognize_images(
         self,
@@ -92,10 +181,14 @@ class PaddleOCREngine:
         language: str,
         on_page: Callable[[int, int, int], None] | None = None,
     ) -> list[OCRPageOutput]:
-        if not self.available():
-            raise RuntimeError(
-                "PaddleOCR не установлен. Для OCR-страниц выполните: pip install '.[ocr]'"
-            )
+        if importlib.util.find_spec("paddleocr") is None:
+            if not self._external_ready():
+                raise RuntimeError(
+                    "PaddleOCR недоступен. Установите его в отдельное окружение и укажите "
+                    f"путь к его python в {PYTHON_ENV_VAR} или в файле "
+                    f"{data_dir().parent / PYTHON_CONFIG}"
+                )
+            return self._run_worker(images, language, on_page)
         client = self._client(language)
         outputs: list[OCRPageOutput] = []
         total = len(images)
