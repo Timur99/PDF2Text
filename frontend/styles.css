@@ -285,16 +285,10 @@ body {
 }
 
 .empty-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  background: var(--bg-grouped);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--label-3);
-  font-size: 22px;
-  margin-bottom: 4px;
+  width: 46px;
+  height: 46px;
+  color: var(--label-4);
+  margin-bottom: 6px;
 }
 
 .empty h2 {

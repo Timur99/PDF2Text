@@ -16,7 +16,7 @@ BUNDLE_ID="${PDF2TEXT_BUNDLE_ID:-com.pdf2text.desktop}"
 APP="desktop/dist/PDF2Text.app"
 SERVER="desktop/dist/pdf2text-server"
 
-if [ ! -x "$SERVER" ]; then
+if [ ! -d "$SERVER" ]; then
   echo "Нет бинаря бэкенда. Сначала:"
   echo "  .venv/bin/pyinstaller desktop/pdf2text.spec --noconfirm --distpath desktop/dist --workpath desktop/build"
   exit 1
@@ -25,7 +25,9 @@ fi
 echo "==> Собираю $APP"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$SERVER" "$APP/Contents/Resources/pdf2text-server"
+# Сборка onedir: копируем каталог целиком. Исполняемый файл внутри —
+# Resources/pdf2text-server/pdf2text-server, именно его запускает оболочка.
+cp -R "$SERVER" "$APP/Contents/Resources/pdf2text-server"
 [ -f desktop/icons/AppIcon.icns ] && cp desktop/icons/AppIcon.icns "$APP/Contents/Resources/"
 
 cat > "$APP/Contents/Info.plist" <<PLIST

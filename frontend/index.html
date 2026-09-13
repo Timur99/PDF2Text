@@ -27,7 +27,12 @@
 
       <main class="content" id="content">
         <section class="empty" id="empty-pane">
-          <div class="empty-icon" aria-hidden="true">⌄</div>
+          <svg class="empty-icon" viewBox="0 0 48 48" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M24 7v21" />
+            <path d="M15 20l9 9 9-9" />
+            <path d="M9 31v5a6 6 0 006 6h18a6 6 0 006-6v-5" />
+          </svg>
           <h2>Перетащите PDF или изображение</h2>
           <p>PDF сначала разбирается напрямую. OCR запускается только там, где текст не читается.</p>
           <p><button type="button" class="btn" id="pick">Выбрать файл</button></p>

@@ -45,12 +45,16 @@ a = Analysis(
 
 pyz = PYZ(a.pure)
 
+# Сборка onedir, а не onefile. Onefile при КАЖДОМ запуске распаковывает себя
+# во временный каталог: замер показал 10–12 секунд до первого ответа сервера.
+# Onedir стартует сразу, потому что распаковывать нечего. Внутри .app каталог
+# всё равно не виден пользователю, так что единственный плюс onefile —
+# «один файл» — здесь ничего не стоит.
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.datas,
     [],
+    exclude_binaries=True,
     name="pdf2text-server",
     debug=False,
     strip=False,
@@ -59,4 +63,13 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=False,
+    name="pdf2text-server",
 )

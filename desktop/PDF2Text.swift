@@ -12,6 +12,12 @@ import WebKit
 private let portRange = 8765...8789
 private let startupTimeout = 40.0
 
+/// Через сколько секунд ожидания объяснить, почему так долго. Обычный запуск
+/// укладывается в треть секунды, и подпись мелькает незамеченной. Долгим бывает
+/// только первый запуск после установки: macOS сканирует незнакомое приложение
+/// (замерено — около 11 секунд), результат кешируется на эту копию.
+private let slowStartupHint = 3.0
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var window: NSWindow!
     private var webView: WKWebView!
@@ -19,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var port = portRange.lowerBound
     private var waited = 0.0
     private var signalSources: [DispatchSourceSignal] = []
+    private var hintShown = false
     private let status = NSTextField(labelWithString: "Запускаю PDF2Text…")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -83,7 +90,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Сервер
 
     private func startServer() {
-        guard let binary = Bundle.main.resourceURL?.appendingPathComponent("pdf2text-server") else {
+        // Сборка PyInstaller — onedir: в Resources лежит каталог pdf2text-server,
+        // а исполняемый файл внутри него. Onefile стартовал 10–12 секунд, потому
+        // что каждый раз распаковывал себя во временный каталог.
+        guard let binary = Bundle.main.resourceURL?
+            .appendingPathComponent("pdf2text-server")
+            .appendingPathComponent("pdf2text-server") else {
             fail("В бандле нет pdf2text-server.")
             return
         }
@@ -117,6 +129,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if self.waited > startupTimeout {
                     self.fail("Бэкенд не ответил за \(Int(startupTimeout)) секунд.")
                     return
+                }
+                if self.waited > slowStartupHint && !self.hintShown {
+                    self.hintShown = true
+                    self.status.stringValue = """
+                        Запускаю PDF2Text…
+
+                        Первый запуск после установки занимает 10–30 секунд:
+                        macOS проверяет новое приложение. Дальше оно
+                        открывается мгновенно.
+                        """
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { self.pollUntilReady() }
             }
@@ -166,6 +188,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         status.alignment = .center
         status.autoresizingMask = [.width, .height]
         status.textColor = .secondaryLabelColor
+        // Подсказка про долгий первый запуск занимает несколько строк.
+        status.usesSingleLineMode = false
+        status.maximumNumberOfLines = 0
+        status.cell?.wraps = true
 
         let content = NSView(frame: frame)
         content.addSubview(status)
