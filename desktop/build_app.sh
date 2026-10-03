@@ -1,9 +1,7 @@
 #!/bin/bash
 # Собирает PDF2Text.app и PDF2Text-<версия>.dmg вокруг замороженного бэкенда.
 #
-# Промежуточный вариант до Tauri: приложение поднимает локальный сервер и
-# открывает браузер по умолчанию. Когда появится Tauri, тот же sidecar-бинарь
-# переедет в его бандл без изменений.
+# Приложение поднимает локальный сервер и открывает нативное окно WKWebView.
 #
 # Запускать из корня репозитория: ./desktop/build_app.sh
 set -euo pipefail
@@ -11,10 +9,18 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-VERSION="${PDF2TEXT_VERSION:-0.1.0}"
+VERSION="${PDF2TEXT_VERSION:-0.1.1}"
 BUNDLE_ID="${PDF2TEXT_BUNDLE_ID:-com.pdf2text.desktop}"
+SIGN_IDENTITY="${PDF2TEXT_SIGN_IDENTITY:--}"
+NOTARY_PROFILE="${PDF2TEXT_NOTARY_PROFILE:-}"
+PYTHON="${PDF2TEXT_PYTHON:-.venv/bin/python}"
 APP="desktop/dist/PDF2Text.app"
 SERVER="desktop/dist/pdf2text-server"
+
+if [ -n "$NOTARY_PROFILE" ] && [ "$SIGN_IDENTITY" = "-" ]; then
+  echo "Для нотаризации задайте PDF2TEXT_SIGN_IDENTITY (Developer ID Application)." >&2
+  exit 1
+fi
 
 if [ ! -d "$SERVER" ]; then
   echo "Нет бинаря бэкенда. Сначала:"
@@ -54,17 +60,36 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 
 echo "==> Компилирую оболочку (Swift + WKWebView)"
-swiftc -O desktop/PDF2Text.swift -o "$APP/Contents/MacOS/PDF2Text"
+mkdir -p desktop/build/ModuleCache
+swiftc -O -module-cache-path desktop/build/ModuleCache \
+  desktop/PDF2Text.swift -o "$APP/Contents/MacOS/PDF2Text"
 chmod +x "$APP/Contents/MacOS/PDF2Text"
+
+echo "==> Подписываю и проверяю приложение"
+"$PYTHON" desktop/sign_app.py "$APP" --identity "$SIGN_IDENTITY"
 
 echo "==> Собираю DMG"
 STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE"' EXIT
 cp -R "$APP" "$STAGE/"
+# Проверяем также копию, которая фактически попадёт в образ.
+"$PYTHON" desktop/sign_app.py "$STAGE/PDF2Text.app" --verify-only
 ln -s /Applications "$STAGE/Applications"
 DMG="desktop/dist/PDF2Text-${VERSION}.dmg"
 rm -f "$DMG"
 hdiutil create -volname "PDF2Text" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
-rm -rf "$STAGE"
+
+if [ "$SIGN_IDENTITY" != "-" ]; then
+  codesign --force --sign "$SIGN_IDENTITY" --timestamp "$DMG"
+  codesign --verify --strict "$DMG"
+fi
+if [ -n "$NOTARY_PROFILE" ]; then
+  xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --wait
+  xcrun stapler staple "$DMG"
+  xcrun stapler validate "$DMG"
+fi
+hdiutil verify "$DMG"
+shasum -a 256 "$DMG" > "$DMG.sha256"
 
 echo
 echo "Готово:"
@@ -72,5 +97,9 @@ echo "  $APP  ($(du -sh "$APP" | cut -f1))"
 echo "  $DMG  ($(du -sh "$DMG" | cut -f1))"
 echo
 echo "Окно нативное (WKWebView), браузер не открывается."
-echo "Сборка неподписанная. При первом запуске macOS 15 покажет предупреждение:"
-echo "  Системные настройки → Конфиденциальность и безопасность → «Всё равно открыть»."
+if [ -n "$NOTARY_PROFILE" ]; then
+  echo "Developer ID: образ подписан и нотаризован, билет прикреплён."
+else
+  echo "Подпись проверена, но нотаризации нет. Gatekeeper может блокировать запуск."
+  echo "Инструкция для доверенной тестовой сборки: desktop/README.md → Подпись и Gatekeeper."
+fi
