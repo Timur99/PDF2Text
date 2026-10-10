@@ -2,16 +2,27 @@
 
 This guide is for an agent the user has asked to install PDF2Text on their computer.
 Complete the installation and client configuration, then verify the connection.
+Proceed autonomously: inspect the environment and apply the defaults below instead
+of starting with an installation questionnaire. Do not ask the user to identify
+technical details that available tools can discover.
 The source is https://github.com/Timur99/PDF2Text. The user-facing server name is
 **PDF2Text — Local PDF & Image OCR MCP**; use `pdf2text` as the client configuration key.
 
 ## 1. Identify the target
 
-- Determine the operating system and the intended MCP client from the conversation
-  and available tools. The client must support local stdio MCP servers.
-- Determine the document directory the user wants to allow. If the client or directory
-  is unclear, ask one combined question. Do not grant the whole home directory or `/`
-  merely to avoid asking. Multiple specific directories are supported.
+- Determine the operating system and current MCP client from session context,
+  environment metadata and the client's existing configuration. Prefer the client
+  hosting this session unless the user named another one. The client must support
+  local stdio MCP servers; do not configure every installed client.
+- Choose document access in this order: directories specified in the task; existing
+  `pdf2text` allowed directories; the current task's project/workspace directory.
+  If none applies, create a dedicated `PDF2Text` folder inside the user's standard
+  Documents directory and allow that folder. Report the selected directory at the end.
+  Do not treat the home directory, filesystem root, temporary directory or server
+  installation directory as a project workspace. Multiple specific directories are supported.
+- Ask only if inspection leaves a genuine blocker, such as multiple possible clients
+  with no evidence of which one is intended. Complete independent installation work
+  first and ask only for the missing decision, not for routine setup preferences.
 - Terminal execution and access to the client's configuration are needed. If they are
   unavailable, explain the limitation; do not claim that the server was installed.
 - macOS with Apple Vision is the tested OCR setup. Windows/Linux can use native PDF
@@ -62,7 +73,7 @@ The connection is local **stdio**:
 
 - Command: absolute path to the installed `pdf2text-mcp` executable.
 - Arguments: `--allow-dir`, followed by the absolute document directory as a separate
-  argument. Repeat the pair for additional user-selected directories.
+  argument. Repeat the pair for additional directories selected in step 1.
 - No URL, port, API key, shell wrapper, working directory, or running macOS app is needed.
 
 For clients using `mcpServers`, the entry has this shape:
