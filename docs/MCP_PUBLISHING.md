@@ -33,11 +33,65 @@
 Предлагаемые теги: `mcp`, `mcp-server`, `pdf`, `ocr`, `text-extraction`, `markdown`,
 `apple-vision`, `macos`, `local-first`.
 
-Предлагаемый идентификатор официального Registry: `io.github.Timur99/pdf2text`.
-Это кандидат, не зарезервированное имя. При публикации namespace должен соответствовать
-авторизованному GitHub-аккаунту. Для PyPI кандидат — `pdf2text-mcp`; доступность имени
-нужно проверить перед переименованием и публикацией. Сейчас имя Python-дистрибутива
-в `pyproject.toml` — `local-ocr`; команды установки из GitHub уже работают с ним.
+## Official MCP Registry: публикация 0.1.0
+
+Подготовлено 10.10.2026. **Публикация ещё не выполнена.**
+
+- Имя в Registry: `io.github.Timur99/pdf2text`.
+- Пакет PyPI: `pdf2text-mcp`, версия `0.1.0`.
+- Карточка: [`server.json`](../server.json).
+- Автоматическая публикация: [`.github/workflows/publish-mcp.yml`](../.github/workflows/publish-mcp.yml).
+
+Пакет включает MCP SDK и Apple Vision на macOS без дополнительных extras.
+Старые команды установки с `[mcp,vision]` сохранены для совместимости.
+Registry запускает пакет через `uvx` и передаёт обязательный `--allow-dir`.
+
+### Однократная настройка владельцем
+
+Войдите в [PyPI и добавьте pending publisher](https://pypi.org/manage/account/publishing/)
+с типом GitHub и следующими значениями:
+
+| Поле | Значение |
+|---|---|
+| PyPI Project Name | `pdf2text-mcp` |
+| Owner | `Timur99` |
+| Repository name | `PDF2Text` |
+| Workflow name | `publish-mcp.yml` |
+| Environment name | `pypi` |
+
+Далее отправьте изменения этого проекта в ветку `main` на GitHub и откройте
+**Actions → Publish PDF2Text MCP → Run workflow** (ветка `main`).
+Workflow проверит пакет, опубликует его на PyPI и затем отправит карточку в
+Official MCP Registry. Авторизация обеих публикаций — через GitHub OIDC;
+API-токены и пароли в репозитории не нужны. Пока привязка в PyPI не создана,
+шаг публикации пакета завершится ошибкой авторизации.
+
+Имя на PyPI не резервируется этой настройкой. Если оно окажется занято при
+первой публикации, нужно согласованно поменять `project.name` в `pyproject.toml`,
+`packages[0].identifier` в `server.json` и имя pending publisher.
+
+Проверки подготовки: 34 теста; сборка wheel и sdist; `twine check --strict`;
+реальный MCP handshake и список инструментов из wheel через `uvx`;
+официальный Registry `/v0.1/validate` вернул `valid: true`, без замечаний.
+Это проверки готовности, а не подтверждение размещения. После успешного workflow
+проверьте наличие пакета на [PyPI](https://pypi.org/project/pdf2text-mcp/) и сервера
+в [Official MCP Registry](https://registry.modelcontextprotocol.io/).
+
+Для следующего выпуска увеличьте версии в `pyproject.toml` и `server.json`
+(верхний `version` и `packages[0].version`), затем повторите workflow.
+Опубликованную версию PyPI перезаписать нельзя. `skip-existing` позволяет повторить
+workflow, если пакет уже загрузился, а следующий шаг Registry ещё не завершился.
+
+Источники: [PyPI: создание проекта через Trusted Publishing](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/),
+[Registry: GitHub Actions и OIDC](https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/github-actions.mdx),
+[Registry: требования к PyPI](https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/package-types.mdx).
+
+## Glama и проверка PR в awesome-mcp-servers
+
+Полученное требование сопровождающих: сначала карточка Glama с успешными проверками,
+затем бейдж Glama после описания сервера в PR. Подготовлены `glama.json`,
+`Dockerfile.glama` и [инструкция настройки непосредственно на Glama](GLAMA.md).
+Размещение и успешный статус проверок пока не подтверждены.
 
 ## Куда подавать
 
@@ -77,24 +131,10 @@ Apple Vision требует macOS, поэтому обычный Linux-хост�
 3. Начать с бесплатной формы mcpservers.org и подачи в NeuralDeep после входа;
    для mcp-catalog.ru — обратиться к редакции или попасть в upstream-список.
    Затем Glama и PulseMCP. Использовать готовые тексты выше и README с промптом установки.
-4. Подготовить пакет для PyPI: выбрать доступное имя, определить версию, добавить
-   метаданные и проверить запуск `pdf2text-mcp` с нужными extras в чистом окружении.
-   Только после этого публиковать пакет из аккаунта владельца.
-5. Подготовить `server.json` и опубликоваться в официальном Registry. Затем при желании
-   подать PR в Awesome MCP Servers.
-6. Для установки через диалог приложения собрать `.mcpb` и проверить его на чистом
+4. Для Official MCP Registry выполнить настройку PyPI и запустить подготовленный
+   workflow по инструкции выше. Затем при желании подать PR в Awesome MCP Servers.
+5. Для установки через диалог приложения собрать `.mcpb` и проверить его на чистом
    Mac; после этого публиковать bundle в GitHub Releases и Smithery.
-
-Для шага 5 официальный порядок: `mcp-publisher init`, заполнение `server.json`,
-`mcp-publisher login github`, `mcp-publisher validate`, `mcp-publisher publish`.
-Metadata должны ссылаться на уже опубликованный артефакт, его точную версию,
-stdio transport и обязательный параметр `--allow-dir`. При варианте PyPI требуется
-маркер `mcp-name: io.github.Timur99/pdf2text` в описании пакета; его значение должно
-совпадать с `name` в `server.json`. Маркер добавляется до сборки и публикации пакета.
-Extras для MCP/Vision и команда запуска должны проверяться именно в той форме,
-которую сгенерирует выбранный каталог, а не только в рабочем venv разработчика.
-[Официальный порядок публикации](https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/quickstart.mdx),
-[проверка владения PyPI-пакетом](https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/package-types.mdx#pypi-packages).
 
 ## Установка без ручного ввода команд
 

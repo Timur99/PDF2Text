@@ -10,6 +10,8 @@ benchmark_outputs/
 
 # Окружение и сборка
 .venv/
+/build/
+/dist/
 __pycache__/
 *.py[cod]
 *.egg-info/

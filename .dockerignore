@@ -1,0 +1,8 @@
+**
+!Dockerfile.glama
+!pyproject.toml
+!README.md
+!backend/
+!backend/**
+**/__pycache__/
+**/*.pyc

@@ -1,0 +1,87 @@
+name: Publish PDF2Text MCP
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: publish-pdf2text-mcp
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.repository == 'Timur99/PDF2Text' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install build and test dependencies
+        run: python -m pip install '.[dev]' build twine jsonschema
+      - name: Run tests
+        run: python -m pytest -q
+      - name: Check registry metadata matches the package
+        run: |
+          python - <<'PY'
+          import json, pathlib, tomllib, urllib.request
+          import jsonschema
+          root = pathlib.Path('.')
+          project = tomllib.loads((root / 'pyproject.toml').read_text())['project']
+          server = json.loads((root / 'server.json').read_text())
+          package = server['packages'][0]
+          assert project['name'] == package['identifier']
+          assert project['version'] == server['version'] == package['version']
+          assert f"mcp-name: {server['name']}" in (root / 'README.md').read_text()
+          with urllib.request.urlopen(server['$schema'], timeout=30) as response:
+              jsonschema.validate(server, json.load(response))
+          PY
+      - name: Build and check distributions
+        run: |
+          python -m build
+          python -m twine check --strict dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-distributions
+          path: dist/
+          if-no-files-found: error
+
+  pypi:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-distributions
+          path: dist/
+      - name: Publish to PyPI using Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+
+  registry:
+    needs: pypi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install verified mcp-publisher v1.8.1
+        run: |
+          mkdir -p "$RUNNER_TEMP/mcp-publisher"
+          cd "$RUNNER_TEMP/mcp-publisher"
+          curl --fail --location --retry 3 -O https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/mcp-publisher_linux_amd64.tar.gz
+          curl --fail --location --retry 3 -O https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/registry_1.8.1_checksums.txt
+          sha256sum --check --ignore-missing registry_1.8.1_checksums.txt
+          tar -xzf mcp-publisher_linux_amd64.tar.gz mcp-publisher
+          echo "$RUNNER_TEMP/mcp-publisher" >> "$GITHUB_PATH"
+      - name: Authenticate to Official MCP Registry
+        run: mcp-publisher login github-oidc
+      - name: Publish server metadata (includes registry validation)
+        run: mcp-publisher publish

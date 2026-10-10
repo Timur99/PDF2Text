@@ -1,0 +1,30 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Timur99/pdf2text",
+  "title": "PDF2Text — Local PDF & Image OCR MCP",
+  "description": "Extract text from local PDFs and images. Native PDF text first, Apple Vision OCR on macOS.",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/Timur99/PDF2Text",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "pdf2text-mcp",
+      "version": "0.1.0",
+      "runtimeHint": "uvx",
+      "transport": { "type": "stdio" },
+      "packageArguments": [
+        {
+          "type": "named",
+          "name": "--allow-dir",
+          "description": "Absolute path to the local documents folder the server may read.",
+          "format": "filepath",
+          "isRequired": true,
+          "isRepeated": true
+        }
+      ]
+    }
+  ]
+}

@@ -19,8 +19,9 @@ python3 -m venv .venv
 .venv/bin/pdf2text-mcp --help
 ```
 
-На macOS extra `vision` подключает встроенный Apple Vision. Для других ОС или
-запасного движка установите `.[mcp,ocr]`. PDF с текстовым слоем работает без OCR.
+MCP SDK и Apple Vision на macOS входят в базовые зависимости; extras `[mcp,vision]`
+сохранены для совместимости. Для других ОС или запасного движка установите
+`.[mcp,ocr]`. PDF с текстовым слоем работает без OCR.
 Пакет MCP — официальный Python SDK, проверенная версия 2.3.0, диапазон `>=2.3,<3`.
 Документация SDK: https://py.sdk.modelcontextprotocol.io/.
 

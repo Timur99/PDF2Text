@@ -843,6 +843,26 @@ native PDF и Vision на изображении (446 символов, без w
 
 ---
 
+## 2026-10-10 — Подготовка Official MCP Registry через PyPI
+
+**Запрос владельца:** добавить сервер в Official MCP Registry.
+
+**Выбор:** дистрибутив `pdf2text-mcp` 0.1.0 и имя Registry
+`io.github.Timur99/pdf2text`. Исходники backend и команды CLI сохраняются.
+MCP SDK и Apple Vision на macOS стали базовыми зависимостями, чтобы запуск
+через `uvx` из карточки не требовал extras. Старые extras совместимы.
+
+**Публикация:** `server.json`, маркер владения в README и ручной workflow
+`publish-mcp.yml`: проверки → PyPI Trusted Publishing → Registry GitHub OIDC.
+Токены не хранятся в проекте. Владелец один раз добавляет pending publisher в PyPI;
+поля приведены в `MCP_PUBLISHING.md`. Публикация пока не выполнена.
+
+**Проверено:** 34 теста, сборка wheel/sdist, строгая проверка Twine, MCP handshake
+и tool discovery из wheel через `uvx`, валидация карточки официальным Registry
+(`valid: true`, без замечаний). GitHub Actions ещё не запускался.
+
+---
+
 ## Открыто — требует решения владельца
 
 Продуктовые развилки (цель проекта, площадка сообщества, часы в неделю) ведутся в скилле

@@ -1,0 +1,8 @@
+include server.json
+include docs/MCP.md
+include docs/INSTALL_MCP.md
+prune inputs
+prune data
+prune benchmark_outputs
+prune .local-dev
+prune .venv

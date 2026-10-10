@@ -3,12 +3,15 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "local-ocr"
+name = "pdf2text-mcp"
 version = "0.1.0"
-description = "Local document OCR with PDF triage, macOS app and MCP server"
+description = "Local MCP server for PDF text extraction and image OCR with Apple Vision on macOS"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+  "mcp>=2.3,<3",
+  "pyobjc-framework-Vision>=10.0; sys_platform == 'darwin'",
+  "pyobjc-framework-Quartz>=10.0; sys_platform == 'darwin'",
   "fastapi>=0.115",
   "uvicorn[standard]>=0.32",
   "python-multipart>=0.0.12",
@@ -17,10 +20,15 @@ dependencies = [
   "pymupdf>=1.24",
 ]
 
+[project.urls]
+Homepage = "https://github.com/Timur99/PDF2Text"
+Repository = "https://github.com/Timur99/PDF2Text"
+Documentation = "https://github.com/Timur99/PDF2Text/blob/main/docs/MCP.md"
+Issues = "https://github.com/Timur99/PDF2Text/issues"
+
 [project.optional-dependencies]
-mcp = [
-  "mcp>=2.3,<3",
-]
+# Preserve existing .[mcp,vision] installation commands.
+mcp = []
 ocr = [
   "paddlepaddle>=3.0",
   "paddleocr>=3.0",
@@ -33,7 +41,6 @@ vision = [
 dev = [
   "pytest>=8.0",
   "httpx>=0.27",
-  "mcp>=2.3,<3",
 ]
 
 [project.scripts]
