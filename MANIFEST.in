@@ -1,3 +1,4 @@
+include LICENSE
 include server.json
 include docs/MCP.md
 include docs/INSTALL_MCP.md

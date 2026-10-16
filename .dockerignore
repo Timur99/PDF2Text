@@ -2,6 +2,7 @@
 !Dockerfile.glama
 !pyproject.toml
 !README.md
+!LICENSE
 !backend/
 !backend/**
 **/__pycache__/
